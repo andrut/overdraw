@@ -23,7 +23,8 @@ CanvasPaint::CanvasPaint(QScreen *screen, float scale, QWidget *parent)
 
     QRect scrGeom = screen->geometry();
     setGeometry(scrGeom);
-    im = QImage(scrGeom.width(), scrGeom.height(), QImage::Format_ARGB32);    
+    im = QImage(scrGeom.width(), scrGeom.height(), QImage::Format_ARGB32);
+    im.fill(QColor(255, 255, 255, 0));
     pen.setCapStyle(Qt::PenCapStyle::RoundCap);
     pen.setWidth(5*scale);
     eraserPen = QPen(QColor(255, 255, 255, 0));
@@ -43,6 +44,10 @@ void CanvasPaint::paintEvent(QPaintEvent *event)
 {
     QPainter p(this);
 
+    #ifdef Q_OS_WINDOWS
+    p.fillRect(geometry(), QColor(255, 255, 255, 1));
+    #endif
+
     p.drawImage(0, 0, im);
     if (drawing) {
         if (eraser) {
@@ -51,7 +56,7 @@ void CanvasPaint::paintEvent(QPaintEvent *event)
             p.drawEllipse(lastPos.x() - 50*scale, lastPos.y() - 50*scale, 100*scale, 100*scale);
         }
     } else {
-        p.setRenderHint(QPainter::RenderHint::HighQualityAntialiasing, true);
+        p.setRenderHint(QPainter::RenderHint::Antialiasing, true);
         p.setBrush(QColor(255, 255, 0, 128));
         p.setPen(Qt::NoPen);
         p.drawEllipse(lastPos.x() - 50*scale, lastPos.y() - 50*scale, 100*scale, 100*scale);
@@ -66,7 +71,7 @@ void CanvasPaint::mousePressEvent(QMouseEvent *e)
     eraser = e->button() == Qt::RightButton;
     lastPos = e->pos();
     QPainter p(&im);
-    p.setRenderHint(QPainter::RenderHint::HighQualityAntialiasing, true);
+    p.setRenderHint(QPainter::RenderHint::Antialiasing, true);
     p.setPen(Qt::NoPen);
     p.setBrush(pen.color());
     if (eraser) {
@@ -87,7 +92,7 @@ void CanvasPaint::mouseMoveEvent(QMouseEvent *e)
 {
     if (drawing) {
         QPainter p(&im);
-        p.setRenderHint(QPainter::RenderHint::HighQualityAntialiasing, true);
+        p.setRenderHint(QPainter::RenderHint::Antialiasing, true);
         p.setPen(eraser ? eraserPen : pen);
         if (eraser) {
             p.save();

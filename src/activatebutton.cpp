@@ -23,7 +23,7 @@ ActivateButton::ActivateButton(QScreen *screen, float scale, QWidget *parent)
     butClear->setSizePolicy(sp);
     butExit->setSizePolicy(sp);
     QHBoxLayout *layout = new QHBoxLayout(this);
-    layout->setMargin(0);
+    //layout->setMargin(0);
     layout->addWidget(butExit);
     layout->addWidget(butClear);
     layout->addWidget(but);
@@ -36,6 +36,11 @@ void ActivateButton::closeEvent(QCloseEvent *)
 {
     qDebug("ActiveButton: Close - Exiting...");
     QApplication::exit(0);
+}
+
+void ActivateButton::resizeEvent(QResizeEvent *e)
+{
+    setGeometry(scrGeom.x() + scrGeom.width() - width(), scrGeom.y() + scrGeom.height() - height(), width(), height());
 }
 
 void ActivateButton::activateClicked()

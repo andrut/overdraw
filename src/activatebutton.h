@@ -14,6 +14,7 @@ public:
     explicit ActivateButton(QScreen *screen, float scale, QWidget *parent = nullptr);
 protected:
     void closeEvent(QCloseEvent *);
+    void resizeEvent(QResizeEvent *);
 private:
     enum Mode { Paint, View };
     Mode mode = Mode::View;
