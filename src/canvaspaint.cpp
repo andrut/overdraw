@@ -23,8 +23,10 @@ CanvasPaint::CanvasPaint(QScreen *screen, float scale, QWidget *parent)
 
     QRect scrGeom = screen->geometry();
     setGeometry(scrGeom);
+
     im = QImage(scrGeom.width(), scrGeom.height(), QImage::Format_ARGB32);
-    im.fill(QColor(255, 255, 255, 0));
+    im.fill(QColor(255, 255, 255, 0));    
+
     pen.setCapStyle(Qt::PenCapStyle::RoundCap);
     pen.setWidth(5*scale);
     eraserPen = QPen(QColor(255, 255, 255, 0));
@@ -49,12 +51,15 @@ void CanvasPaint::paintEvent(QPaintEvent *event)
     #endif
 
     p.drawImage(0, 0, im);
+
     if (drawing) {
         if (eraser) {
             p.setBrush(QColor(255, 0, 0, 100));
             p.setPen(Qt::NoPen);
             p.drawEllipse(lastPos.x() - 50*scale, lastPos.y() - 50*scale, 100*scale, 100*scale);
         }
+        p.setPen(Qt::red);
+        p.setBrush(Qt::NoBrush);
     } else {
         p.setRenderHint(QPainter::RenderHint::Antialiasing, true);
         p.setBrush(QColor(255, 255, 0, 128));
@@ -63,13 +68,19 @@ void CanvasPaint::paintEvent(QPaintEvent *event)
         p.setBrush(pen.color());
         p.drawEllipse(lastPos.x() - pen.width()/2, lastPos.y() - pen.width()/2, pen.width(), pen.width());
     }
+    //draw frame:
+//    for (int i = 0; i < 2; ++i) {
+//        p.fillRect(i*(width() - 2), 0, 2, height(), Qt::darkGreen);
+//        p.fillRect(0, i*(height() - 2), width(), 2, Qt::darkGreen);
+//    }
 }
 
 void CanvasPaint::mousePressEvent(QMouseEvent *e)
 {
     drawing = true;
+    imBeforeChange = im.copy();
     eraser = e->button() == Qt::RightButton;
-    lastPos = e->pos();
+    lastPos = e->pos();    
     QPainter p(&im);
     p.setRenderHint(QPainter::RenderHint::Antialiasing, true);
     p.setPen(Qt::NoPen);
@@ -80,8 +91,14 @@ void CanvasPaint::mousePressEvent(QMouseEvent *e)
         int r = eraserPen.width()/2;
         p.drawEllipse(lastPos.x() - r, lastPos.y() - r, 2*r+1, 2*r+1);
         p.restore();
+        regionMin = QPoint(lastPos.x() - r - 1, lastPos.y() - r - 1);
+        regionMax = QPoint(lastPos.x() + r + 1, lastPos.y() + r + 1);
     } else {
-        p.drawEllipse(lastPos.x()-pen.width()/2, lastPos.y()-pen.width()/2, pen.width(), pen.width());
+        int r = pen.width()/2;
+        p.drawEllipse(lastPos.x()-r, lastPos.y()-r, 2*r+1, 2*r+1);
+        regionMin = QPoint(lastPos.x() - r - 1, lastPos.y() - r - 1);
+        regionMax = QPoint(lastPos.x() + r + 1, lastPos.y() + r + 1);
+
     }
     p.end();
     update();
@@ -93,12 +110,22 @@ void CanvasPaint::mouseMoveEvent(QMouseEvent *e)
     if (drawing) {
         QPainter p(&im);
         p.setRenderHint(QPainter::RenderHint::Antialiasing, true);
-        p.setPen(eraser ? eraserPen : pen);
+        QPen &curPen = eraser ? eraserPen : pen;
+        p.setPen(curPen);
         if (eraser) {
             p.save();
             p.setCompositionMode(QPainter::CompositionMode_Clear);
         }
-        p.drawLine(lastPos.x(), lastPos.y(), e->pos().x(), e->pos().y());
+        p.drawLine(lastPos.x(), lastPos.y(), e->pos().x(), e->pos().y());        
+        int r = curPen.width()/2 + 1;
+        int x1 = e->pos().x() - r;
+        int y1 = e->pos().y() - r;
+        int x2 = e->pos().x() + r;
+        int y2 = e->pos().y() + r;
+        if (x1 < regionMin.x()) regionMin.setX(x1);
+        if (y1 < regionMin.y()) regionMin.setY(y1);
+        if (x2 > regionMax.x()) regionMax.setX(x2);
+        if (y2 > regionMax.y()) regionMax.setY(y2);
         if (eraser){
             p.restore();
         }
@@ -109,9 +136,19 @@ void CanvasPaint::mouseMoveEvent(QMouseEvent *e)
 }
 
 void CanvasPaint::mouseReleaseEvent(QMouseEvent *e)
-{
+{    
+    ImageRegion r;
+    r.im = imBeforeChange.copy(QRect(regionMin, regionMax));
+    r.pos = regionMin;
+    undoStack.append(r);
+    undoRam += r.im.sizeInBytes();
+    while (undoRam > undoMaxRam && undoStack.size() > 1) {
+        undoRam -= undoStack[0].im.sizeInBytes();
+        undoStack.removeFirst();
+    }
+
     setCursor(QCursor(Qt::CursorShape::ArrowCursor));
-    drawing = false;
+    drawing = false;    
     update();
 }
 
@@ -157,6 +194,19 @@ void CanvasPaint::keyPressEvent(QKeyEvent *e)
         break;
     case Qt::Key_R:
         pen.setWidth(15*scale);
+        break;
+    case Qt::Key_Z:
+        if ((e->modifiers() & Qt::KeyboardModifier::ControlModifier) && undoStack.size() > 0) {
+            ImageRegion r = undoStack.last();
+            undoStack.removeLast();
+            undoRam -= r.im.sizeInBytes();
+            QPainter p(&im);
+            p.setCompositionMode(QPainter::CompositionMode_Source);
+            //p.fillRect(r.pos.x(), r.pos.y(), r.im.width(), r.im.height(), Qt::white);
+            p.drawImage(r.pos, r.im);
+            p.end();
+            update();
+        }
         break;
     }
     update();
