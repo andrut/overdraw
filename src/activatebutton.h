@@ -15,10 +15,16 @@ public:
 protected:
     void closeEvent(QCloseEvent *);
     void resizeEvent(QResizeEvent *);
+    void mousePressEvent(QMouseEvent *);
+    void mouseReleaseEvent(QMouseEvent *);
+    void mouseMoveEvent(QMouseEvent *);
 private:
     enum Mode { Paint, View };
     Mode mode = Mode::View;
     QRect scrGeom;
+
+    bool dragged = false;
+    QPoint dragOffset;
 
 private slots:
     void activateClicked();    

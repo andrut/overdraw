@@ -1,6 +1,7 @@
 #include "activatebutton.h"
 #include <QApplication>
 #include <QHBoxLayout>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QScreen>
 #include <QStyle>
@@ -22,8 +23,8 @@ ActivateButton::ActivateButton(QScreen *screen, float scale, QWidget *parent)
     but->setSizePolicy(sp);
     butClear->setSizePolicy(sp);
     butExit->setSizePolicy(sp);
-    QHBoxLayout *layout = new QHBoxLayout(this);
-    //layout->setMargin(0);
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->addSpacing(10*scale);
     layout->addWidget(butExit);
     layout->addWidget(butClear);
     layout->addWidget(but);
@@ -40,7 +41,34 @@ void ActivateButton::closeEvent(QCloseEvent *)
 
 void ActivateButton::resizeEvent(QResizeEvent *e)
 {
-    setGeometry(scrGeom.x() + scrGeom.width() - width(), scrGeom.y() + scrGeom.height() - height(), width(), height());
+    if (!dragged) {
+        setGeometry(scrGeom.x() + scrGeom.width() - width(), scrGeom.y() + scrGeom.height() - height(), width(), height());
+    }
+}
+
+void ActivateButton::mousePressEvent(QMouseEvent *e)
+{
+    if (e->button() == Qt::LeftButton) {
+        dragged = true;
+        dragOffset = e->globalPos() - frameGeometry().topLeft();
+        e->accept();
+    }
+}
+
+void ActivateButton::mouseReleaseEvent(QMouseEvent *e)
+{
+    if (e->button() == Qt::LeftButton) {
+        dragged = false;
+        e->accept();
+    }
+}
+
+void ActivateButton::mouseMoveEvent(QMouseEvent *e)
+{
+    if (dragged && (e->buttons() & Qt::LeftButton)) {
+        move(e->globalPos() - dragOffset);
+        e->accept();
+    }
 }
 
 void ActivateButton::activateClicked()
